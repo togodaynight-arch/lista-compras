@@ -40,6 +40,8 @@
     .btn-go { background: #e60000; color: #fff; width: 100%; justify-content: center; font-size: 1rem; }
     .btn-cam { background: #fff; color: #e60000; border: 2px solid #e60000; }
     .btn-sm { background: #eee; color: #444; padding: 8px 14px; font-size: 0.8rem; }
+    .btn-blue { background: #1976d2; color: #fff; }
+    .btn-green { background: #4caf50; color: #fff; }
 
     .section { margin-bottom: 0; }
     .section-head {
@@ -56,7 +58,7 @@
     .section-body.escondido { max-height: 0 !important; }
 
     .item {
-      display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+      display: flex; align-items: center; gap: 8px; padding: 11px 14px;
       border-bottom: 1px solid #f0f0f0; cursor: pointer;
     }
     .item:active { background: #fafafa; }
@@ -68,6 +70,10 @@
       font-size: 0.7rem; color: #fff; font-weight: 700;
     }
     .nome { flex: 1; font-size: 0.9rem; }
+    .tag-loja {
+      font-size: 0.65rem; background: #e8e8e8; color: #666; padding: 2px 7px;
+      border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+    }
 
     .sem-cat .section-head { background: #fff8e1; border-bottom-color: #ffe0b2; }
     .sem-cat-badge { font-size: 0.65rem; background: #fff3cd; color: #856404; padding: 1px 6px; border-radius: 3px; margin-left: 4px; }
@@ -86,11 +92,53 @@
 
     .top-btns { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
 
+    /* Modal */
+    .modal-bg {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: flex-start;
+      padding: 20px; overflow-y: auto;
+    }
+    .modal-bg.show { display: flex; }
+    .modal-card {
+      background: #fff; border-radius: 14px; width: 100%; max-width: 500px;
+      max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      margin-top: 10px;
+    }
+    .modal-head {
+      padding: 16px 18px; border-bottom: 1px solid #eee; display: flex;
+      align-items: center; justify-content: space-between; position: sticky; top: 0;
+      background: #fff; border-radius: 14px 14px 0 0; z-index: 1;
+    }
+    .modal-head h2 { font-size: 1rem; }
+    .modal-close {
+      background: none; border: none; font-size: 1.3rem; cursor: pointer;
+      padding: 4px 8px; border-radius: 50%; color: #888;
+    }
+    .modal-body { padding: 14px 18px; }
+    .modal-body h3 {
+      font-size: 0.85rem; margin: 14px 0 8px 0; display: flex; align-items: center; gap: 6px;
+    }
+    .modal-body h3:first-child { margin-top: 0; }
+    .modal-body ul { list-style: none; }
+    .modal-body li {
+      padding: 6px 0; font-size: 0.85rem; border-bottom: 1px solid #f5f5f5;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-body li .ms { font-size: 0.7rem; color: #999; }
+    .modal-foot {
+      padding: 12px 18px; border-top: 1px solid #eee; display: flex; gap: 8px;
+      flex-wrap: wrap; position: sticky; bottom: 0; background: #fff;
+      border-radius: 0 0 14px 14px;
+    }
+    .modal-empty { color: #bbb; font-size: 0.8rem; padding: 4px 0; }
+
     @media (max-width: 400px) {
       .header h1 { font-size: 1rem; }
       .main { padding: 8px; }
       .btn { padding: 8px 12px; font-size: 0.8rem; }
       .btn-go { font-size: 0.9rem; }
+      .modal-card { border-radius: 14px 14px 0 0; max-height: 90vh; }
+      .tag-loja { font-size: 0.6rem; padding: 1px 5px; }
     }
   </style>
 </head>
@@ -119,6 +167,21 @@
     </div>
 
     <div id="resultado"></div>
+  </div>
+
+  <!-- Modal do Resumo -->
+  <div class="modal-bg" id="modalBg" onclick="fecharModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <h2>📋 Resumo da Compra</h2>
+        <button class="modal-close" onclick="fecharModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot">
+        <button class="btn btn-green" onclick="copiarResumo()">📋 Copiar texto</button>
+        <button class="btn btn-blue" onclick="compartilharResumo()">📤 Compartilhar</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -246,7 +309,6 @@
           if (nome.indexOf(kw) !== -1 && kw.length >= 3) return CATS[c].nome;
         }
       }
-      // Segunda passagem: palavras curtas (2 letras) só se for exato
       for (var c = 0; c < CATS.length; c++) {
         var palavras = CATS[c].palavras;
         for (var p = 0; p < palavras.length; p++) {
@@ -262,16 +324,12 @@
       var itens = [];
       for (var i = 0; i < partes.length; i++) {
         var linha = partes[i].trim();
-        // Remove numeração
         linha = linha.replace(/^\d+[\.\)\-]\s*/, '');
-        // Remove marcadores
         linha = linha.replace(/^[\-\*\•\✓\✔\☐\☑\□]\s*/, '');
-        // Remove quantidades comuns
         linha = linha.replace(/^\d+\s*(un|unidades?|kg|g|l|litros?|ml|pacotes?|caixas?|latas?|potes?|sacos?)\s+/i, '');
         linha = linha.trim();
         if (linha.length >= 2) itens.push(linha);
       }
-      // Remove duplicatas mantendo ordem
       var unicas = [];
       for (var i = 0; i < itens.length; i++) {
         if (unicas.indexOf(itens[i]) === -1) unicas.push(itens[i]);
@@ -296,7 +354,6 @@
       }
       textoSalvo = texto;
 
-      // Agrupar por categoria
       var grupos = {};
       var semCat = [];
       for (var i = 0; i < itens.length; i++) {
@@ -309,7 +366,6 @@
         }
       }
 
-      // Montar dados ordenados conforme CATS
       todosDados = [];
       for (var c = 0; c < CATS.length; c++) {
         if (grupos[CATS[c].nome]) {
@@ -320,7 +376,6 @@
         todosDados.push({ cat: null, emoji: '❓', itens: semCat });
       }
 
-      // Inicializar checks (mantém os já marcados)
       for (var i = 0; i < itens.length; i++) {
         if (!(itens[i] in checks)) checks[itens[i]] = false;
       }
@@ -328,7 +383,6 @@
       desenhar();
       salvar();
 
-      // Rolar até o resultado
       setTimeout(function() {
         var r = document.getElementById('resultado');
         if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -348,6 +402,7 @@
       html += '<div class="top-btns">';
       html += '<button class="btn btn-sm" onclick="marcarTodos()">✅ Todos</button>';
       html += '<button class="btn btn-sm" onclick="desmarcarTodos()">🔄 Nenhum</button>';
+      html += '<button class="btn btn-sm" onclick="abrirResumo()">📋 Resumo</button>';
       html += '<button class="btn btn-sm" onclick="apagarLista()">🗑️ Limpar</button>';
       html += '</div>';
 
@@ -376,9 +431,11 @@
           var item = grupo.itens[i];
           var feito = checks[item] ? ' feito' : '';
           var check = checks[item] ? '✓' : '';
+          var tagLoja = grupo.cat ? '<span class="tag-loja">' + grupo.cat + '</span>' : '<span class="sem-cat-badge">?</span>';
           html += '<div class="item' + feito + '" onclick="toggleItem(this, \'' + esc(item) + '\')">';
           html += '<div class="bola">' + check + '</div>';
-          html += '<span class="nome">' + item + (grupo.cat ? '' : ' <span class="sem-cat-badge">?</span>') + '</span>';
+          html += '<span class="nome">' + item + '</span>';
+          html += tagLoja;
           html += '</div>';
         }
         html += '</div></div>';
@@ -473,6 +530,177 @@
           document.getElementById('txtLista').value = textoSalvo;
         }
       } catch(e) { localStorage.removeItem('lc'); }
+    }
+
+    // ====== RESUMO / EXPORTAÇÃO ======
+    function abrirResumo() {
+      if (todosDados.length === 0) {
+        alert('Gere uma lista primeiro!');
+        return;
+      }
+
+      var comprados = {};
+      var pendentes = {};
+
+      for (var g = 0; g < todosDados.length; g++) {
+        var grupo = todosDados[g];
+        var cat = grupo.cat || 'Sem categoria';
+        var emoji = grupo.emoji;
+        for (var i = 0; i < grupo.itens.length; i++) {
+          var item = grupo.itens[i];
+          var alvo = checks[item] ? comprados : pendentes;
+          if (!alvo[cat]) alvo[cat] = { emoji: emoji, itens: [] };
+          alvo[cat].itens.push(item);
+        }
+      }
+
+      var body = document.getElementById('modalBody');
+      var html = '';
+
+      // Comprados
+      html += '<h3>✅ Comprado</h3>';
+      var temComprados = false;
+      var listaCats = [];
+      for (var c = 0; c < CATS.length; c++) { listaCats.push(CATS[c].nome); }
+      listaCats.push('Sem categoria');
+
+      for (var ci = 0; ci < listaCats.length; ci++) {
+        var cn = listaCats[ci];
+        if (comprados[cn] && comprados[cn].itens.length > 0) {
+          temComprados = true;
+          html += '<ul>';
+          for (var ii = 0; ii < comprados[cn].itens.length; ii++) {
+            html += '<li><span>' + comprados[cn].itens[ii] + '</span> <span class="ms">' + cn + '</span></li>';
+          }
+          html += '</ul>';
+        }
+      }
+      if (!temComprados) html += '<div class="modal-empty">Nenhum item comprado ainda.</div>';
+
+      // Pendentes
+      html += '<h3>⏳ Pendente</h3>';
+      var temPendentes = false;
+      for (var ci = 0; ci < listaCats.length; ci++) {
+        var cn = listaCats[ci];
+        if (pendentes[cn] && pendentes[cn].itens.length > 0) {
+          temPendentes = true;
+          html += '<ul>';
+          for (var ii = 0; ii < pendentes[cn].itens.length; ii++) {
+            html += '<li><span>' + pendentes[cn].itens[ii] + '</span> <span class="ms">' + cn + '</span></li>';
+          }
+          html += '</ul>';
+        }
+      }
+      if (!temPendentes) html += '<div class="modal-empty">Todos os itens comprados! 🎉</div>';
+
+      body.innerHTML = html;
+      document.getElementById('modalBg').classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function fecharModal(ev) {
+      if (ev && ev.target !== document.getElementById('modalBg')) return;
+      document.getElementById('modalBg').classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    function gerarTextoResumo() {
+      var comprados = {};
+      var pendentes = {};
+
+      for (var g = 0; g < todosDados.length; g++) {
+        var grupo = todosDados[g];
+        var cat = grupo.cat || 'Sem categoria';
+        for (var i = 0; i < grupo.itens.length; i++) {
+          var item = grupo.itens[i];
+          var alvo = checks[item] ? comprados : pendentes;
+          if (!alvo[cat]) alvo[cat] = [];
+          alvo[cat].push(item);
+        }
+      }
+
+      var linhas = [];
+      linhas.push('🛒 LISTA DE COMPRAS - RESUMO');
+      linhas.push('');
+
+      linhas.push('✅ COMPRADO:');
+      var temC = false;
+      for (var c = 0; c < CATS.length; c++) {
+        var cn = CATS[c].nome;
+        if (comprados[cn] && comprados[cn].length > 0) {
+          temC = true;
+          linhas.push('  ' + CATS[c].emoji + ' ' + cn + ':');
+          for (var ii = 0; ii < comprados[cn].length; ii++) {
+            linhas.push('    ✓ ' + comprados[cn][ii]);
+          }
+        }
+      }
+      if (comprados['Sem categoria'] && comprados['Sem categoria'].length > 0) {
+        temC = true;
+        linhas.push('  ❓ Sem categoria:');
+        for (var ii = 0; ii < comprados['Sem categoria'].length; ii++) {
+          linhas.push('    ✓ ' + comprados['Sem categoria'][ii]);
+        }
+      }
+      if (!temC) linhas.push('  (nenhum)');
+
+      linhas.push('');
+      linhas.push('⏳ PENDENTE:');
+      var temP = false;
+      for (var c = 0; c < CATS.length; c++) {
+        var cn = CATS[c].nome;
+        if (pendentes[cn] && pendentes[cn].length > 0) {
+          temP = true;
+          linhas.push('  ' + CATS[c].emoji + ' ' + cn + ':');
+          for (var ii = 0; ii < pendentes[cn].length; ii++) {
+            linhas.push('    ☐ ' + pendentes[cn][ii]);
+          }
+        }
+      }
+      if (pendentes['Sem categoria'] && pendentes['Sem categoria'].length > 0) {
+        temP = true;
+        linhas.push('  ❓ Sem categoria:');
+        for (var ii = 0; ii < pendentes['Sem categoria'].length; ii++) {
+          linhas.push('    ☐ ' + pendentes['Sem categoria'][ii]);
+        }
+      }
+      if (!temP) linhas.push('  (tudo comprado!) 🎉');
+
+      return linhas.join('\n');
+    }
+
+    function copiarResumo() {
+      var texto = gerarTextoResumo();
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(texto).then(function() {
+          alert('Resumo copiado! Cole no WhatsApp ou onde quiser.');
+        }).catch(function() {
+          fallbackCopiar(texto);
+        });
+      } else {
+        fallbackCopiar(texto);
+      }
+    }
+
+    function fallbackCopiar(texto) {
+      var ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      alert('Resumo copiado!');
+    }
+
+    function compartilharResumo() {
+      var texto = gerarTextoResumo();
+      if (navigator.share) {
+        navigator.share({ title: 'Lista de Compras', text: texto }).catch(function(){});
+      } else {
+        copiarResumo();
+      }
     }
 
     // ====== OCR (leitura de imagem) ======
