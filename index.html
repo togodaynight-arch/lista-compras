@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Lista de Compras - Atacadão</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f2f2f2; color: #333; min-height: 100vh; padding-bottom: 30px;
+    }
+    .header {
+      background: #e60000; color: #fff; padding: 14px 20px; text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 10;
+    }
+    .header h1 { font-size: 1.2rem; font-weight: 700; }
+    .header .sub { font-size: 0.7rem; opacity: 0.85; margin-top: 2px; }
+    .main { max-width: 600px; margin: 0 auto; padding: 12px; }
+
+    .card {
+      background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    }
+    .card label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; color: #333; }
+    .card textarea {
+      width: 100%; height: 110px; border: 2px solid #ddd; border-radius: 8px;
+      padding: 10px; font-size: 1rem; font-family: inherit; resize: vertical;
+    }
+    .card textarea:focus { outline: none; border-color: #e60000; }
+    .hint { font-size: 0.7rem; color: #999; margin-top: 4px; }
+
+    .btn-area { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      padding: 10px 18px; border: none; border-radius: 8px; font-size: 0.85rem;
+      font-weight: 600; cursor: pointer; transition: opacity 0.15s; display: inline-flex;
+      align-items: center; gap: 5px;
+    }
+    .btn:active { opacity: 0.7; }
+    .btn-go { background: #e60000; color: #fff; width: 100%; justify-content: center; font-size: 1rem; }
+    .btn-cam { background: #fff; color: #e60000; border: 2px solid #e60000; }
+    .btn-sm { background: #eee; color: #444; padding: 8px 14px; font-size: 0.8rem; }
+
+    .section { margin-bottom: 0; }
+    .section-head {
+      display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+      background: #fafafa; border-bottom: 1px solid #eee; cursor: pointer; user-select: none;
+    }
+    .section-head .ico { font-size: 1.1rem; }
+    .section-head .title { font-weight: 700; font-size: 0.9rem; flex: 1; }
+    .section-head .badge { font-size: 0.75rem; color: #999; background: #eee; padding: 2px 10px; border-radius: 10px; }
+    .section-head .arr { font-size: 0.6rem; color: #aaa; transition: transform 0.2s; }
+    .section-head.fechado .arr { transform: rotate(-90deg); }
+
+    .section-body { overflow: hidden; transition: max-height 0.25s; }
+    .section-body.escondido { max-height: 0 !important; }
+
+    .item {
+      display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+      border-bottom: 1px solid #f0f0f0; cursor: pointer;
+    }
+    .item:active { background: #fafafa; }
+    .item.feito .nome { text-decoration: line-through; color: #bbb; }
+    .item.feito .bola { background: #4caf50; border-color: #4caf50; }
+    .bola {
+      width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ccc;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; color: #fff; font-weight: 700;
+    }
+    .nome { flex: 1; font-size: 0.9rem; }
+
+    .sem-cat .section-head { background: #fff8e1; border-bottom-color: #ffe0b2; }
+    .sem-cat-badge { font-size: 0.65rem; background: #fff3cd; color: #856404; padding: 1px 6px; border-radius: 3px; margin-left: 4px; }
+
+    .barra { height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
+    .barra-fill { height: 100%; background: #4caf50; border-radius: 2px; transition: width 0.3s; }
+    .status-txt { text-align: center; font-size: 0.75rem; color: #888; margin-bottom: 8px; }
+
+    .result-card { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+    .empty { text-align: center; padding: 30px 15px; color: #ccc; font-size: 0.9rem; }
+
+    #fotoInput { display: none; }
+    #ocrLoading { display: none; text-align: center; padding: 8px; color: #888; font-size: 0.8rem; }
+    #ocrLoading.show { display: block; }
+    #ocrStatus { font-size: 0.75rem; color: #888; }
+
+    .top-btns { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+
+    @media (max-width: 400px) {
+      .header h1 { font-size: 1rem; }
+      .main { padding: 8px; }
+      .btn { padding: 8px 12px; font-size: 0.8rem; }
+      .btn-go { font-size: 0.9rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🛒 Lista de Compras</h1>
+    <div class="sub">Organizada por seções do Atacadão</div>
+  </div>
+
+  <div class="main">
+    <div class="card">
+      <label for="txtLista">Cole sua lista de compras:</label>
+      <textarea id="txtLista" placeholder="Ex:&#10;arroz&#10;feijão&#10;leite&#10;carne moída&#10;banana&#10;sabão em pó&#10;shampoo"></textarea>
+      <div class="hint">Digite um item por linha ou separado por vírgula</div>
+
+      <div class="btn-area" style="align-items:center;">
+        <button class="btn btn-cam" id="btnCam" onclick="document.getElementById('fotoInput').click()">📷 Foto/Galeria</button>
+        <input type="file" id="fotoInput" accept="image/*" capture="environment" onchange="lerImagem(this)">
+        <span id="ocrStatus"></span>
+      </div>
+      <div id="ocrLoading">⏳ Lendo imagem...</div>
+
+      <div class="btn-area">
+        <button class="btn btn-go" id="btnGerar" onclick="gerar()">🔍 Gerar Lista Organizada</button>
+      </div>
+    </div>
+
+    <div id="resultado"></div>
+  </div>
+
+  <script>
+    // ====== CATEGORIAS (ATACADÃO) ======
+    var CATS = [
+      { nome: "Hortifruti", emoji: "🍎", palavras: [
+        "alface","tomate","cebola","alho","batata","cenoura","banana","maçã","laranja","limão",
+        "abacaxi","melancia","melão","uva","mamão","morango","pera","abacate","manga","kiwi",
+        "goiaba","acerola","maracujá","pêssego","ameixa","caqui","jaca","coco","figo","tangerina",
+        "mexerica","beterraba","abóbora","abobrinha","berinjela","chuchu","pepino","pimentão",
+        "quiabo","vagem","brócolis","brocolis","couve-flor","couve","espinafre","repolho",
+        "rúcula","rucula","agrião","agriao","salsinha","cebolinha","coentro","manjericão",
+        "hortelã","hortela","alecrim","orégano","oregano","mandioca","aipim","macaxeira",
+        "inhame","cará","batata doce","batata-doce","milho verde","milho-verde","palmito",
+        "cogumelo","champignon","shitake","shimeji","verduras","legumes","frutas","verdura",
+        "legume","fruta","tempero verde","cheiro-verde","cheiro verde","pimenta dedo de moça"
+      ]},
+      { nome: "Açougue", emoji: "🥩", palavras: [
+        "carne","frango","porco","peixe","boi","bovina","suína","bovino","suíno","picanha",
+        "alcatra","contrafilé","contra filé","contra-filé","filé mignon","file mignon",
+        "coxão mole","coxão duro","coxao","patinho","acém","acem","lagarto","fraldinha",
+        "maminha","costela","bisteca","linguiça","linguica","salsicha","bacon","presunto",
+        "mortadela","salame","peito de frango","coxa de frango","sobrecoxa","asa de frango",
+        "coração de frango","moela","fígado","figado","costelinha","pernil","paleta","lombo",
+        "toucinho","carne moída","carne moida","hambúrguer","hamburguer","almôndega",
+        "almondega","kibe","quibe","espetinho","tilápia","tilapia","salmão","salmao",
+        "merluza","pescada","bacalhau","camarão","camarao","sardinha fresca","atum fresco",
+        "linguiça toscana","linguiça calabresa"
+      ]},
+      { nome: "Frios e Laticínios", emoji: "🧀", palavras: [
+        "queijo","leite","iogurte","manteiga","requeijão","requeijao","mussarela",
+        "muçarela","mozarela","prato","parmesão","parmesao","provolone","gorgonzola",
+        "ricota","cottage","cream cheese","minas","coalho","cheddar","catupiry",
+        "leite condensado","creme de leite","nata","margarina","queijo ralado","danone",
+        "coalhada","leite fermentado","yakult","frios","laticínios","laticinios","lácteos",
+        "lacteos","apresuntado","peito de peru","blanquet","rosbife","leitão","leitao"
+      ]},
+      { nome: "Mercearia", emoji: "🛒", palavras: [
+        "arroz","feijão","feijao","macarrão","macarrao","óleo","oleo","azeite","açúcar",
+        "açucar","acucar","sal","café","cafe","farinha","fubá","fuba","amido de milho",
+        "maizena","maisena","fermento","bicarbonato","gelatina","gelatinha","molho de tomate",
+        "extrato de tomate","catchup","ketchup","mostarda","maionese","vinagre","tempero",
+        "caldo de galinha","caldo de carne","caldo de legumes","sazon","caldo knorr",
+        "shoyu","molho inglês","pimenta","orégano","oregano","colorau","colorífico",
+        "açafrão","acafrao","cúrcuma","curcuma","cominho","páprica","paprica","canela",
+        "cravo","noz-moscada","louro","ervilha","milho enlatado","seleta","atum enlatado",
+        "sardinha enlatada","leite de coco","coco ralado","leite em pó","leite em po",
+        "achocolatado","toddy","nescau","chocolate em pó","bolacha","biscoito","torrada",
+        "rosquinha","wafer","bolo","mistura para bolo","farinha láctea","mucilon","cereal",
+        "aveia","granola","sucrilhos","barra de cereal","geleia","geléia","mel","melado",
+        "doce de leite","goiabada","marmelada","açúcar mascavo","adocante","adoçante",
+        "macarrão instantâneo","miojo","cup noodles","sopa","creme de cebola","azeitona",
+        "palmito em conserva","milho de pipoca","pipoca","amendoim","castanha","nozes",
+        "farinha de rosca","farinha de mandioca","farinha de trigo"
+      ]},
+      { nome: "Bebidas", emoji: "🥤", palavras: [
+        "refrigerante","refri","coca-cola","coca cola","pepsi","guaraná","guarana",
+        "fanta","sprite","suco","néctar","nectar","água","agua","água mineral",
+        "água com gás","água tônica","cerveja","breja","chopp","vinho","espumante",
+        "vodka","whisky","uísque","uisque","cachaça","pinga","rum","gin","energético",
+        "energetico","red bull","monster","gatorade","isotônico","isotonico","água de coco",
+        "chá","cha","chá mate","mate leão","mate-leão"
+      ]},
+      { nome: "Limpeza", emoji: "🧹", palavras: [
+        "detergente","sabão","sabao","água sanitária","agua sanitaria","cândida","candida",
+        "qboa","desinfetante","lysoform","veja","lustra móveis","álcool","alcool",
+        "álcool gel","esponja","bucha","bombril","palha de aço","lã de aço","pano de chão",
+        "rodo","vassoura","pá de lixo","balde","saco de lixo","luvas","luva","limpa vidro",
+        "limpador","multiuso","multi-uso","cloro","amaciante","confort","downy","ypê","ype",
+        "desengordurante","tira mancha","vanish","branqueador","alvejante","tira limo",
+        "limpa limo","limpa forno","sapólio","sapolio","saponáceo","lustra inox",
+        "lustra móveis","limpa alumínio"
+      ]},
+      { nome: "Higiene e Perfumaria", emoji: "🧴", palavras: [
+        "shampoo","xampu","condicionador","sabonete","papel higiênico","papel higienico",
+        "creme dental","pasta de dente","fio dental","escova de dente","enxaguante",
+        "listerine","colgate","sorriso","closeup","desodorante","antitranspirante",
+        "rexona","dove","nivea","gillette","prestobarba","lâmina de barbear","lamina",
+        "creme de barbear","espuma de barbear","pós-barba","after shave","hidratante",
+        "protetor solar","filtro solar","bronzeador","repelente","acetona",
+        "removedor de esmalte","esmalte","algodão","algodao","cotonete","lenço umedecido",
+        "absorvente","fralda","pomada","hipoglós","hipoglos","bepantol","minâncora",
+        "aparelho de barbear"
+      ]},
+      { nome: "Padaria", emoji: "🍞", palavras: [
+        "pão","pao","pão francês","pão de forma","pão integral","pão de queijo",
+        "pão doce","pão de leite","croissant","sonho","donut","rosca","pão de alho",
+        "pão australiano","pão sírio","pão árabe","wrap","tortilha","rap10"
+      ]},
+      { nome: "Congelados", emoji: "❄️", palavras: [
+        "congelado","congelados","pizza congelada","lasanha","nuggets","nugget",
+        "steak de frango","filé de peixe","batata frita","batata congelada",
+        "polenta frita","mandioca frita","vegetais congelados","legumes congelados",
+        "ervilha congelada","milho congelado","sorvete","picolé","picole","açaí","açai",
+        "acai","gelo","polpa de fruta","polpa congelada","frango congelado",
+        "peixe congelado","yakisoba","hambúrguer congelado"
+      ]},
+      { nome: "Pet Shop", emoji: "🐶", palavras: [
+        "ração","racao","petisco","ossinho","bifinho","sachê","sache","areia para gato",
+        "tapete higiênico","tapete higienico","pipi dog","coleira","guia","antipulgas",
+        "vermífugo","vermifugo","shampoo cachorro","brinquedo cachorro","brinquedo gato",
+        "areia gato"
+      ]},
+      { nome: "Bazar / Utilidades", emoji: "🏠", palavras: [
+        "papel alumínio","papel aluminio","papel filme","plástico filme","papel manteiga",
+        "papel toalha","guardanapo","filtro de café","coador de café","copo descartável",
+        "prato descartável","talher descartável","garfo","faca","colher","canudo",
+        "palito de dente","palito de churrasco","isqueiro","fósforo","fosforo","vela",
+        "pilha","bateria","extensão","fita adesiva","durex","fita crepe","fita isolante",
+        "silver tape","pegador de roupa","prendedor de roupa","cabide","pote","vasilha",
+        "tupperware","forma de bolo","assadeira","travessa","tigela","panela","frigideira",
+        "leiteira","chaleira","garrafa térmica","garrafa","marmita","isopor",
+        "caixa térmica","cooler","lancheira","sacola","papel de presente","embalagem",
+        "lacre"
+      ]}
+    ];
+
+    function categorizar(texto) {
+      var nome = texto.toLowerCase().trim();
+      for (var c = 0; c < CATS.length; c++) {
+        var palavras = CATS[c].palavras;
+        for (var p = 0; p < palavras.length; p++) {
+          var kw = palavras[p];
+          if (nome === kw) return CATS[c].nome;
+          if (nome.indexOf(kw) !== -1 && kw.length >= 3) return CATS[c].nome;
+        }
+      }
+      // Segunda passagem: palavras curtas (2 letras) só se for exato
+      for (var c = 0; c < CATS.length; c++) {
+        var palavras = CATS[c].palavras;
+        for (var p = 0; p < palavras.length; p++) {
+          var kw = palavras[p];
+          if (kw.length < 3 && nome === kw) return CATS[c].nome;
+        }
+      }
+      return null;
+    }
+
+    function extrairItens(texto) {
+      var partes = texto.split(/[\n,;]+/);
+      var itens = [];
+      for (var i = 0; i < partes.length; i++) {
+        var linha = partes[i].trim();
+        // Remove numeração
+        linha = linha.replace(/^\d+[\.\)\-]\s*/, '');
+        // Remove marcadores
+        linha = linha.replace(/^[\-\*\•\✓\✔\☐\☑\□]\s*/, '');
+        // Remove quantidades comuns
+        linha = linha.replace(/^\d+\s*(un|unidades?|kg|g|l|litros?|ml|pacotes?|caixas?|latas?|potes?|sacos?)\s+/i, '');
+        linha = linha.trim();
+        if (linha.length >= 2) itens.push(linha);
+      }
+      // Remove duplicatas mantendo ordem
+      var unicas = [];
+      for (var i = 0; i < itens.length; i++) {
+        if (unicas.indexOf(itens[i]) === -1) unicas.push(itens[i]);
+      }
+      return unicas;
+    }
+
+    var todosDados = [];
+    var checks = {};
+    var textoSalvo = '';
+
+    function gerar() {
+      var texto = document.getElementById('txtLista').value;
+      if (!texto.trim()) {
+        alert('Digite ou cole sua lista de compras primeiro!');
+        return;
+      }
+      var itens = extrairItens(texto);
+      if (itens.length === 0) {
+        alert('Nenhum item encontrado. Escreva um item por linha.');
+        return;
+      }
+      textoSalvo = texto;
+
+      // Agrupar por categoria
+      var grupos = {};
+      var semCat = [];
+      for (var i = 0; i < itens.length; i++) {
+        var cat = categorizar(itens[i]);
+        if (cat) {
+          if (!grupos[cat]) grupos[cat] = [];
+          grupos[cat].push(itens[i]);
+        } else {
+          semCat.push(itens[i]);
+        }
+      }
+
+      // Montar dados ordenados conforme CATS
+      todosDados = [];
+      for (var c = 0; c < CATS.length; c++) {
+        if (grupos[CATS[c].nome]) {
+          todosDados.push({ cat: CATS[c].nome, emoji: CATS[c].emoji, itens: grupos[CATS[c].nome] });
+        }
+      }
+      if (semCat.length > 0) {
+        todosDados.push({ cat: null, emoji: '❓', itens: semCat });
+      }
+
+      // Inicializar checks (mantém os já marcados)
+      for (var i = 0; i < itens.length; i++) {
+        if (!(itens[i] in checks)) checks[itens[i]] = false;
+      }
+
+      desenhar();
+      salvar();
+
+      // Rolar até o resultado
+      setTimeout(function() {
+        var r = document.getElementById('resultado');
+        if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+
+    function desenhar() {
+      var el = document.getElementById('resultado');
+      if (todosDados.length === 0) {
+        el.innerHTML = '<div class="empty">📋 Nenhuma lista gerada ainda.<br>Cole seus itens e toque em "Gerar Lista".</div>';
+        return;
+      }
+
+      var html = '';
+
+      // Botões topo
+      html += '<div class="top-btns">';
+      html += '<button class="btn btn-sm" onclick="marcarTodos()">✅ Todos</button>';
+      html += '<button class="btn btn-sm" onclick="desmarcarTodos()">🔄 Nenhum</button>';
+      html += '<button class="btn btn-sm" onclick="apagarLista()">🗑️ Limpar</button>';
+      html += '</div>';
+
+      // Progresso
+      var total = Object.keys(checks).length;
+      var feitos = 0;
+      for (var k in checks) { if (checks[k]) feitos++; }
+      var pct = total > 0 ? Math.round((feitos / total) * 100) : 0;
+      html += '<div class="barra"><div class="barra-fill" id="barraFill" style="width:' + pct + '%"></div></div>';
+      html += '<div class="status-txt" id="statusTxt">' + feitos + '/' + total + ' (' + pct + '%) concluído</div>';
+
+      html += '<div class="result-card">';
+
+      for (var g = 0; g < todosDados.length; g++) {
+        var grupo = todosDados[g];
+        var cls = grupo.cat ? 'section' : 'section sem-cat';
+        html += '<div class="' + cls + '">';
+        html += '<div class="section-head" onclick="toggleSecao(this)">';
+        html += '<span class="ico">' + grupo.emoji + '</span>';
+        html += '<span class="title">' + (grupo.cat || 'Sem categoria') + '</span>';
+        html += '<span class="badge">' + grupo.itens.length + '</span>';
+        html += '<span class="arr">▼</span>';
+        html += '</div>';
+        html += '<div class="section-body" style="max-height:3000px">';
+        for (var i = 0; i < grupo.itens.length; i++) {
+          var item = grupo.itens[i];
+          var feito = checks[item] ? ' feito' : '';
+          var check = checks[item] ? '✓' : '';
+          html += '<div class="item' + feito + '" onclick="toggleItem(this, \'' + esc(item) + '\')">';
+          html += '<div class="bola">' + check + '</div>';
+          html += '<span class="nome">' + item + (grupo.cat ? '' : ' <span class="sem-cat-badge">?</span>') + '</span>';
+          html += '</div>';
+        }
+        html += '</div></div>';
+      }
+
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
+    function toggleItem(el, nome) {
+      checks[nome] = !checks[nome];
+      if (checks[nome]) {
+        el.classList.add('feito');
+        el.querySelector('.bola').textContent = '✓';
+      } else {
+        el.classList.remove('feito');
+        el.querySelector('.bola').textContent = '';
+      }
+      atualizarBarra();
+      salvar();
+    }
+
+    function toggleSecao(head) {
+      var body = head.nextElementSibling;
+      if (body.classList.contains('escondido')) {
+        body.classList.remove('escondido');
+        body.style.maxHeight = '3000px';
+        head.classList.remove('fechado');
+      } else {
+        body.classList.add('escondido');
+        body.style.maxHeight = '0px';
+        head.classList.add('fechado');
+      }
+    }
+
+    function marcarTodos() {
+      for (var k in checks) checks[k] = true;
+      desenhar();
+      salvar();
+    }
+
+    function desmarcarTodos() {
+      for (var k in checks) checks[k] = false;
+      desenhar();
+      salvar();
+    }
+
+    function apagarLista() {
+      if (!confirm('Apagar toda a lista?')) return;
+      todosDados = [];
+      checks = {};
+      textoSalvo = '';
+      document.getElementById('txtLista').value = '';
+      document.getElementById('resultado').innerHTML = '<div class="empty">📋 Nenhuma lista gerada ainda.<br>Cole seus itens e toque em "Gerar Lista".</div>';
+      localStorage.removeItem('lc');
+    }
+
+    function atualizarBarra() {
+      var total = Object.keys(checks).length;
+      var feitos = 0;
+      for (var k in checks) { if (checks[k]) feitos++; }
+      var pct = total > 0 ? Math.round((feitos / total) * 100) : 0;
+      var bf = document.getElementById('barraFill');
+      var st = document.getElementById('statusTxt');
+      if (bf) bf.style.width = pct + '%';
+      if (st) st.textContent = feitos + '/' + total + ' (' + pct + '%) concluído';
+    }
+
+    function esc(str) {
+      return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function salvar() {
+      try {
+        var obj = { checks: checks, dados: todosDados, texto: textoSalvo || document.getElementById('txtLista').value };
+        localStorage.setItem('lc', JSON.stringify(obj));
+      } catch(e) {}
+    }
+
+    function carregar() {
+      try {
+        var raw = localStorage.getItem('lc');
+        if (!raw) return;
+        var obj = JSON.parse(raw);
+        checks = obj.checks || {};
+        todosDados = obj.dados || [];
+        textoSalvo = obj.texto || '';
+        if (todosDados.length > 0) {
+          document.getElementById('txtLista').value = textoSalvo;
+          desenhar();
+        } else if (textoSalvo) {
+          document.getElementById('txtLista').value = textoSalvo;
+        }
+      } catch(e) { localStorage.removeItem('lc'); }
+    }
+
+    // ====== OCR (leitura de imagem) ======
+    var tesseractOk = false;
+
+    function carregarTesseract(cb) {
+      if (tesseractOk) { cb(true); return; }
+      if (typeof Tesseract !== 'undefined') { tesseractOk = true; cb(true); return; }
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = function() { tesseractOk = true; cb(true); };
+      s.onerror = function() { cb(false); };
+      document.head.appendChild(s);
+    }
+
+    function lerImagem(input) {
+      var file = input.files[0];
+      if (!file) return;
+
+      var st = document.getElementById('ocrStatus');
+      var ld = document.getElementById('ocrLoading');
+      var btn = document.getElementById('btnCam');
+      st.textContent = 'Carregando leitor...';
+      ld.classList.add('show');
+      btn.disabled = true;
+
+      carregarTesseract(function(ok) {
+        if (!ok) {
+          st.textContent = 'Erro ao carregar leitor. Digite os itens manualmente.';
+          ld.classList.remove('show');
+          btn.disabled = false;
+          input.value = '';
+          return;
+        }
+        st.textContent = 'Lendo imagem...';
+        Tesseract.recognize(file, 'por', {
+          logger: function(m) {
+            if (m.status === 'recognizing text') {
+              st.textContent = 'Lendo... ' + Math.round(m.progress * 100) + '%';
+            }
+          }
+        }).then(function(result) {
+          var txt = result.data.text;
+          if (txt.trim()) {
+            document.getElementById('txtLista').value = txt;
+            st.textContent = '✓ Texto extraído!';
+            gerar();
+          } else {
+            st.textContent = 'Nenhum texto encontrado na imagem.';
+          }
+        }).catch(function(err) {
+          console.error('OCR:', err);
+          st.textContent = 'Erro ao processar imagem.';
+        }).finally(function() {
+          ld.classList.remove('show');
+          btn.disabled = false;
+          input.value = '';
+          setTimeout(function() { st.textContent = ''; }, 5000);
+        });
+      });
+    }
+
+    carregar();
+  </script>
+</body>
+</html>
